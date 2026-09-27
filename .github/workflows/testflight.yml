@@ -10,7 +10,7 @@ on:
       - 'ExportOptions.plist'
 jobs:
   upload:
-    runs-on: macos-15
+    runs-on: macos-26
     env:
       IOS_BUNDLE_ID: com.nhattranlaz.xprinterhotspotlab
     steps:
@@ -28,6 +28,10 @@ jobs:
           for v in APPLE_TEAM_ID KEY_ID ISSUER_ID API_KEY CERT CERT_PASSWORD PROFILE; do
             [ -n "${!v}" ] || { echo "::error::Missing required secret: $v"; exit 1; }
           done
+      - name: Verify Xcode 26
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Generate project
