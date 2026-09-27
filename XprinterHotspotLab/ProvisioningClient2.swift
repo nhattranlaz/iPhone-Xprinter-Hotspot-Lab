@@ -47,7 +47,7 @@ final class ProvisioningClient: NSObject, ObservableObject, ESPProvisionerDelega
         request.aesKey = ""
         request.deviceCount = "1"
         request.securityVer = 1
-        ESPProvisioner.share().startProvisioning(request, withDelegate: self)
+        ESPProvisioner.share().startProvisioning(request, with: self)
     }
 
     func cancel() {
