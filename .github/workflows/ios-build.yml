@@ -1,0 +1,23 @@
+name: iOS LAB Build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate project
+        run: xcodegen generate
+      - name: Build simulator (unsigned verification)
+        run: |
+          xcodebuild -project XprinterHotspotLab.xcodeproj \
+            -scheme XprinterHotspotLab \
+            -sdk iphonesimulator \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO build
