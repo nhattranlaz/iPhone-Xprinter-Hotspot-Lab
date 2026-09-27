@@ -29,3 +29,10 @@ targets:
         INFOPLIST_KEY_NSLocalNetworkUsageDescription: Kết nối trực tiếp tới máy in Xprinter trong mạng Wi-Fi/Personal Hotspot để thử in.
         TARGETED_DEVICE_FAMILY: "1"
         CODE_SIGN_STYLE: Automatic
+        SWIFT_OBJC_BRIDGING_HEADER: XprinterHotspotLab/XprinterHotspotLab-Bridging-Header.h
+        HEADER_SEARCH_PATHS:
+          - "$(SRCROOT)/XprinterHotspotLab/Vendor/Common/ESPUtils"
+          - "$(SRCROOT)/XprinterHotspotLab/Vendor/ESPTouch/esptouch"
+          - "$(SRCROOT)/XprinterHotspotLab/Vendor/ESPTouch/protocol"
+          - "$(SRCROOT)/XprinterHotspotLab/Vendor/ESPTouch/task"
+          - "$(SRCROOT)/XprinterHotspotLab/Vendor/ESPTouch/udp"
