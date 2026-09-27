@@ -1,0 +1,23 @@
+name: XprinterHotspotLab
+options:
+  bundleIdPrefix: com.nhattranlaz
+  deploymentTarget:
+    iOS: "16.0"
+settings:
+  base:
+    SWIFT_VERSION: 5.0
+targets:
+  XprinterHotspotLab:
+    type: application
+    platform: iOS
+    sources:
+      - XprinterHotspotLab
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.nhattranlaz.xprinterhotspotlab
+        PRODUCT_NAME: Xprinter Hotspot Lab
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Xprinter Hotspot Lab
+        INFOPLIST_KEY_NSLocalNetworkUsageDescription: Kết nối trực tiếp tới máy in Xprinter trong mạng Wi-Fi/Personal Hotspot để thử in.
+        TARGETED_DEVICE_FAMILY: "1"
+        CODE_SIGN_STYLE: Automatic
