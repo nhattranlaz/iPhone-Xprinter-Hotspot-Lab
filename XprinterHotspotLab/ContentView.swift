@@ -5,57 +5,97 @@ struct ContentView: View {
     @StateObject private var printer = PrinterClient()
     @AppStorage("hotspotSSID") private var hotspotSSID = ""
     @AppStorage("hotspotPassword") private var hotspotPassword = ""
-    @AppStorage("hotspotBSSID") private var hotspotBSSID = ""
     @AppStorage("printerIP") private var printerIP = ""
     @AppStorage("printerPort") private var printerPort = "9100"
+    @FocusState private var focused: Field?
+    enum Field { case ssid, password, ip, port }
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("1 · Đưa Xprinter vào Hotspot iPhone") {
-                    TextField("Tên Personal Hotspot (SSID)", text: $hotspotSSID)
-                        .textInputAutocapitalization(.never)
-                    SecureField("Mật khẩu Personal Hotspot", text: $hotspotPassword)
-                    TextField("BSSID (để trống để thử tự động)", text: $hotspotBSSID)
-                        .textInputAutocapitalization(.never)
-                    Button("Gửi cấu hình Wi-Fi cho Xprinter") {
-                        provision.provision(ssid: hotspotSSID, password: hotspotPassword, bssid: hotspotBSSID)
+            ScrollView {
+                VStack(spacing: 22) {
+                    card("1. Wi-Fi của iPhone") {
+                        field("Tên Personal Hotspot", text: $hotspotSSID, field: .ssid)
+                        SecureField("Mật khẩu Personal Hotspot", text: $hotspotPassword)
+                            .textFieldStyle(.roundedBorder).focused($focused, equals: .password)
+                        Text("Không dùng BSSID giả. Cả V1 và V2 chỉ nhận thông tin chúng ta thực sự biết.")
+                            .font(.footnote).foregroundStyle(.secondary)
                     }
-                    Button("Hủy cấu hình", role: .cancel) { provision.cancel() }
-                    Text(provision.state)
-                    if !provision.discoveredIP.isEmpty {
-                        Button("Dùng IP \(provision.discoveredIP)") {
-                            printerIP = provision.discoveredIP
+
+                    card("2. Cấu hình Xprinter") {
+                        Button("Thử ESP-Touch V1") { closeKeyboard(); provision.provisionV1(ssid: hotspotSSID, password: hotspotPassword) }
+                            .buttonStyle(LabButtonStyle())
+                        Button("Thử ESP-Touch V2") { closeKeyboard(); provision.provisionV2(ssid: hotspotSSID, password: hotspotPassword) }
+                            .buttonStyle(LabButtonStyle())
+                        Button("Hủy cấu hình", role: .cancel) { provision.cancel() }
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                        Text(provision.state).font(.headline).frame(maxWidth: .infinity, alignment: .leading)
+                        if !provision.engine.isEmpty {
+                            Text("Engine: \(provision.engine)").font(.caption).foregroundStyle(.secondary)
                         }
                     }
-                    Text("Đưa máy in vào chế độ cấu hình Wi-Fi trước khi bấm. LAB dùng ESP-Touch V1 chính thức của Espressif.")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
 
-                Section("2 · Kiểm tra in") {
-                    TextField("IP máy in", text: $printerIP)
-                        .textInputAutocapitalization(.never)
-                        .keyboardType(.numbersAndPunctuation)
-                    TextField("Port", text: $printerPort).keyboardType(.numberPad)
-                    Button("Test TCP") {
-                        printer.test(host: printerIP, port: UInt16(printerPort) ?? 9100)
+                    card("3. Kiểm tra in") {
+                        field("IP máy in", text: $printerIP, field: .ip)
+                            .keyboardType(.numbersAndPunctuation)
+                        field("Port", text: $printerPort, field: .port)
+                            .keyboardType(.numberPad)
+                        Button("Test TCP") { closeKeyboard(); printer.test(host: printerIP, port: UInt16(printerPort) ?? 9100) }
+                            .buttonStyle(LabButtonStyle())
+                        Button("In thử ESC/POS") { closeKeyboard(); printer.printTest(host: printerIP, port: UInt16(printerPort) ?? 9100) }
+                            .buttonStyle(LabButtonStyle())
+                        Text(printer.state).font(.headline).frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    Button("In thử ESC/POS") {
-                        printer.printTest(host: printerIP, port: UInt16(printerPort) ?? 9100)
-                    }
-                    Text(printer.state).font(.headline)
-                }
 
-                Section("Log in") {
-                    Text(printer.log.isEmpty ? "Chưa có log." : printer.log)
-                        .font(.system(.caption, design: .monospaced))
-                        .textSelection(.enabled)
+                    card("Log in") {
+                        Text(printer.log.isEmpty ? "Chưa có log." : printer.log)
+                            .font(.system(.caption, design: .monospaced))
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                .padding(18)
+            }
+            .scrollDismissesKeyboard(.interactively)
+            .navigationTitle("Xprinter Hotspot Lab")
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Xong") { closeKeyboard() }
                 }
             }
-            .navigationTitle("Xprinter Hotspot Lab")
             .onChange(of: provision.discoveredIP) { newValue in
                 if !newValue.isEmpty { printerIP = newValue }
             }
         }
+    }
+
+    @ViewBuilder private func card<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(title).font(.title3.bold())
+            content()
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18))
+    }
+
+    private func field(_ placeholder: String, text: Binding<String>, field: Field) -> some View {
+        TextField(placeholder, text: text)
+            .textFieldStyle(.roundedBorder)
+            .textInputAutocapitalization(.never)
+            .focused($focused, equals: field)
+            .frame(minHeight: 48)
+    }
+
+    private func closeKeyboard() { focused = nil }
+}
+
+private struct LabButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.headline)
+            .frame(maxWidth: .infinity, minHeight: 52)
+            .background(.primary.opacity(configuration.isPressed ? 0.14 : 0.08), in: RoundedRectangle(cornerRadius: 14))
     }
 }
