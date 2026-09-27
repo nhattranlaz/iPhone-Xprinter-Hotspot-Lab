@@ -83,10 +83,13 @@ struct ContentView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
-                .padding(18)
+                .padding(.horizontal, 18)
+                .padding(.top, 12)
+                .padding(.bottom, 28)
             }
             .scrollDismissesKeyboard(.interactively)
             .navigationTitle("Xprinter Hotspot Lab")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
