@@ -12,12 +12,16 @@ targets:
     platform: iOS
     sources:
       - XprinterHotspotLab
+    resources:
+      - XprinterHotspotLab/Assets.xcassets
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.nhattranlaz.xprinterhotspotlab
         PRODUCT_NAME: Xprinter Hotspot Lab
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: Xprinter Hotspot Lab
+        INFOPLIST_KEY_CFBundleIconName: AppIcon
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         MARKETING_VERSION: "1.0"
         CURRENT_PROJECT_VERSION: "1"
         INFOPLIST_KEY_CFBundleShortVersionString: "$(MARKETING_VERSION)"
