@@ -144,7 +144,10 @@
         for (struct ifaddrs *ifa = ifaddr; ifa; ifa = ifa->ifa_next) {
             if (!ifa->ifa_addr || ifa->ifa_addr->sa_family != AF_INET || !(ifa->ifa_flags & IFF_UP)) continue;
             NSString *name = [NSString stringWithUTF8String:ifa->ifa_name];
-            if (![name hasPrefix:@"bridge"]) continue;
+            // Runtime resolver: never assume bridge/en/pdp names or a fixed subnet.
+            // Reject only loopback and interfaces without a usable non-host IPv4 netmask.
+            if (ifa->ifa_flags & IFF_LOOPBACK) continue;
+            if (!ifa->ifa_netmask) continue;
             struct sockaddr_in *sin = (struct sockaddr_in *)ifa->ifa_addr;
             struct sockaddr_in *mask = (struct sockaddr_in *)ifa->ifa_netmask;
             uint32_t ipHost = ntohl(sin->sin_addr.s_addr);
@@ -156,7 +159,7 @@
             effectiveHost = [NSString stringWithUTF8String:buf];
             unsigned int ifindex = if_nametoindex(ifa->ifa_name);
             int rc = setsockopt(self._sck_fd4, IPPROTO_IP, IP_BOUND_IF, &ifindex, sizeof(ifindex));
-            NSLog(@"LAB3 ESPTouch V1 bind interface=%@ index=%u ip=%s broadcast=%@ IP_BOUND_IF rc=%d errno=%d",
+            NSLog(@"LAB3 ESPTouch V1 runtime candidate interface=%@ index=%u ip=%s broadcast=%@ IP_BOUND_IF rc=%d errno=%d",
                   name, ifindex, inet_ntoa(sin->sin_addr), effectiveHost, rc, errno);
             break;
         }
