@@ -19,10 +19,7 @@ final class ProvisioningClient: ObservableObject {
             Task { @MainActor in
                 guard let self else { return }
                 if let result, result.isSuc {
-                    self.discoveredIP = result.ipAddrData.flatMap { data in
-                        let bytes = [UInt8](data)
-                        return bytes.count == 4 ? bytes.map(String.init).joined(separator: ".") : nil
-                    } ?? ""
+                    self.discoveredIP = result.getAddressString() ?? ""
                     self.state = self.discoveredIP.isEmpty ? "ESP-Touch PASS — máy in đã nhận Wi-Fi" : "ESP-Touch PASS — IP: \(self.discoveredIP)"
                 } else if result?.isCancelled == true {
                     self.state = "Đã hủy cấu hình"
