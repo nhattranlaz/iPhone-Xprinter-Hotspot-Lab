@@ -53,7 +53,7 @@ struct ContentView: View {
                 }
             }
             .navigationTitle("Xprinter Hotspot Lab")
-            .onChange(of: provision.discoveredIP) { _, newValue in
+            .onChange(of: provision.discoveredIP) { newValue in
                 if !newValue.isEmpty { printerIP = newValue }
             }
         }
