@@ -37,3 +37,4 @@ targets:
           - "$(SRCROOT)/XprinterHotspotLab/Vendor/ESPTouch/task"
           - "$(SRCROOT)/XprinterHotspotLab/Vendor/ESPTouch/udp"
           - "$(SRCROOT)/XprinterHotspotLab/Vendor/ESPTouchV2"
+          - "$(SRCROOT)/XprinterHotspotLab/Vendor/CocoaAsyncSocket/GCD"
