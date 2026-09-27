@@ -11,39 +11,34 @@ final class PrinterClient: ObservableObject {
         log += "[\(stamp)] \(text)\n"
     }
 
-    func test(host: String, port: UInt16) {
-        run(host: host, port: port, payload: nil)
-    }
+    func test(host: String, port: UInt16) { run(host: host, port: port, payload: nil) }
 
     func printTest(host: String, port: UInt16) {
-        var data = Data([0x1B, 0x40]) // ESC @
+        var data = Data([0x1B, 0x40])
         data.append(Data("XPRINTER HOTSPOT LAB\nTCP 9100: PASS\n\n\n".utf8))
-        data.append(contentsOf: [0x1D, 0x56, 0x00]) // GS V 0
+        data.append(contentsOf: [0x1D, 0x56, 0x00])
         run(host: host, port: port, payload: data)
     }
 
     private func run(host: String, port: UInt16, payload: Data?) {
         guard !host.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               let nwPort = NWEndpoint.Port(rawValue: port) else {
-            state = "IP/port không hợp lệ"
-            append(state)
-            return
+            state = "IP/port không hợp lệ"; append(state); return
         }
 
         state = "Đang kết nối..."
         append("TCP → \(host):\(port)")
         let connection = NWConnection(host: NWEndpoint.Host(host), port: nwPort, using: .tcp)
         let started = Date()
-        var finished = false
+        let gate = FinishGate()
 
-        func finish(_ message: String) {
-            guard !finished else { return }
-            finished = true
-            Task { @MainActor in
-                self.state = message
-                self.append(message)
-            }
+        let finish: @Sendable (String) -> Void = { [weak self, connection] message in
+            guard gate.claim() else { return }
             connection.cancel()
+            Task { @MainActor in
+                self?.state = message
+                self?.append(message)
+            }
         }
 
         connection.stateUpdateHandler = { newState in
@@ -61,20 +56,27 @@ final class PrinterClient: ObservableObject {
             case .failed(let error):
                 finish("TCP FAIL: \(error.localizedDescription)")
             case .waiting(let error):
-                Task { @MainActor in
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
                     self.state = "Đang chờ: \(error.localizedDescription)"
                     self.append(self.state)
                 }
-            case .cancelled:
-                break
-            default:
-                break
+            default: break
             }
         }
 
         connection.start(queue: DispatchQueue(label: "xprinter.lab.tcp"))
-        DispatchQueue.global().asyncAfter(deadline: .now() + 5) {
-            finish("TIMEOUT sau 5 giây")
-        }
+        DispatchQueue.global().asyncAfter(deadline: .now() + 5) { finish("TIMEOUT sau 5 giây") }
+    }
+}
+
+private final class FinishGate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var finished = false
+    func claim() -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        guard !finished else { return false }
+        finished = true
+        return true
     }
 }
