@@ -61,7 +61,7 @@ final class HotspotDiagnostic: ObservableObject {
             guard (flags & UInt32(IFF_UP)) != 0 else { continue }
             let name = String(cString: item.ifa_name)
             let ip = stringIPv4(addr)
-            let mask = item.ifa_netmask.map(stringIPv4) ?? ""
+            let mask = item.ifa_netmask != nil ? stringIPv4(UnsafePointer(item.ifa_netmask)) : ""
             var broadcast = ""
             if let dst = item.ifa_dstaddr { broadcast = stringIPv4(dst) }
             if broadcast.isEmpty, let computed = computeBroadcast(ip: ip, mask: mask) { broadcast = computed }
@@ -81,13 +81,13 @@ final class HotspotDiagnostic: ObservableObject {
     }
 
     private static func computeBroadcast(ip: String, mask: String) -> String? {
-        var a = in_addr(), m = in_addr()
-        guard inet_pton(AF_INET, ip, &a) == 1, inet_pton(AF_INET, mask, &m) == 1 else { return nil }
-        let host = ntohl(a.s_addr), nm = ntohl(m.s_addr)
-        var b = in_addr(s_addr: htonl(host | ~nm))
-        var buf = [CChar](repeating: 0, count: Int(INET_ADDRSTRLEN))
-        guard inet_ntop(AF_INET, &b, &buf, socklen_t(INET_ADDRSTRLEN)) != nil else { return nil }
-        return String(cString: buf)
+        let ipParts = ip.split(separator: ".").compactMap { UInt8($0) }
+        let maskParts = mask.split(separator: ".").compactMap { UInt8($0) }
+        guard ipParts.count == 4, maskParts.count == 4 else { return nil }
+        let b = zip(ipParts, maskParts).map { ipByte, maskByte in
+            UInt8(Int(ipByte) | (255 ^ Int(maskByte)))
+        }
+        return b.map(String.init).joined(separator: ".")
     }
 
     private static func probe(_ iface: InterfaceRecord, port: UInt16) -> ProbeRecord {
