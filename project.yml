@@ -18,6 +18,10 @@ targets:
         PRODUCT_NAME: Xprinter Hotspot Lab
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: Xprinter Hotspot Lab
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        INFOPLIST_KEY_CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        INFOPLIST_KEY_CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         INFOPLIST_KEY_NSLocalNetworkUsageDescription: Kết nối trực tiếp tới máy in Xprinter trong mạng Wi-Fi/Personal Hotspot để thử in.
         TARGETED_DEVICE_FAMILY: "1"
         CODE_SIGN_STYLE: Automatic
