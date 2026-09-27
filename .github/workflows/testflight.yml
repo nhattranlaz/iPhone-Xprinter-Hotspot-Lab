@@ -40,8 +40,22 @@ jobs:
           PROFILE: ${{ secrets.APPLE_PROVISIONING_PROFILE_BASE64 }}
         run: |
           KEYCHAIN="$RUNNER_TEMP/lab-signing.keychain-db"
-          printf '%s' "$CERT" | base64 --decode > "$RUNNER_TEMP/cert.p12"
-          printf '%s' "$PROFILE" | base64 --decode > "$RUNNER_TEMP/profile.mobileprovision"
+          python3 - <<'PY'
+          import base64, os, pathlib
+          temp = pathlib.Path(os.environ["RUNNER_TEMP"])
+          for env_name, filename in [("CERT", "cert.p12"), ("PROFILE", "profile.mobileprovision")]:
+              raw = "".join(os.environ[env_name].split())
+              try:
+                  data = base64.b64decode(raw, validate=True)
+              except Exception as exc:
+                  raise SystemExit(f"{env_name} base64 decode failed: {exc}")
+              if not data:
+                  raise SystemExit(f"{env_name} decoded to empty data")
+              (temp / filename).write_bytes(data)
+              print(f"{env_name} decoded bytes: {len(data)}")
+          PY
+          test -s "$RUNNER_TEMP/cert.p12"
+          test -s "$RUNNER_TEMP/profile.mobileprovision"
           security create-keychain -p lab "$KEYCHAIN"
           security set-keychain-settings -lut 21600 "$KEYCHAIN"
           security unlock-keychain -p lab "$KEYCHAIN"
