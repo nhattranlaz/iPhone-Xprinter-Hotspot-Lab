@@ -4,10 +4,11 @@ struct ContentView: View {
     @StateObject private var provision = ProvisioningClient()
     @StateObject private var printer = PrinterClient()
     @StateObject private var diagnostic = HotspotDiagnostic()
-    @AppStorage("hotspotSSID") private var hotspotSSID = ""
-    @AppStorage("hotspotPassword") private var hotspotPassword = ""
+    @StateObject private var hotspot = HotspotCredentialModel()
+
     @AppStorage("printerIP") private var printerIP = ""
     @AppStorage("printerPort") private var printerPort = "9100"
+
     @FocusState private var focused: Field?
     enum Field { case ssid, password, ip, port }
 
@@ -15,60 +16,87 @@ struct ContentView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 22) {
-                    card("LAB-3 · Personal Hotspot Diagnostic") {
-                        Button("Quét interface") { diagnostic.refresh() }
-                            .buttonStyle(LabButtonStyle())
-                        Button("Probe UDP broadcast tất cả interface") { closeKeyboard(); diagnostic.probeAll() }
-                            .buttonStyle(LabButtonStyle())
-                        Text(diagnostic.status).font(.headline)
-                        ForEach(diagnostic.interfaces) { item in
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text("\(item.name)  #\(item.index)").font(.system(.body, design: .monospaced).bold())
-                                Text("IP \(item.address)  mask \(item.netmask)")
-                                Text("broadcast \(item.broadcast.isEmpty ? "—" : item.broadcast)")
-                            }
-                            .font(.system(.caption, design: .monospaced))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                        ForEach(diagnostic.probes) { p in
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text("\(p.interface): \(p.result)").bold()
-                                Text("\(p.source) → \(p.destination)")
-                                Text("errno=\(p.errnoCode) · \(p.timestamp.formatted(date: .omitted, time: .standard))")
-                            }
-                            .font(.system(.caption, design: .monospaced))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                        Text("SOCKET_SEND_PASS chỉ xác nhận sendto() thành công; không khẳng định packet đã được Xprinter nhận trên sóng.")
-                            .font(.footnote).foregroundStyle(.secondary)
-                    }
+                    card("1. Hotspot iPhone") {
+                        TextField("Tên Personal Hotspot", text: $hotspot.ssid)
+                            .textFieldStyle(.roundedBorder)
+                            .textInputAutocapitalization(.never)
+                            .focused($focused, equals: .ssid)
+                            .frame(minHeight: 48)
+                            .onChange(of: hotspot.ssid) { _ in hotspot.userEditedSSID() }
 
-                    card("1. Wi-Fi của iPhone") {
-                        field("Tên Personal Hotspot", text: $hotspot.ssid, field: .ssid)\n                            .onChange(of: hotspot.ssid) { _ in hotspot.userEditedSSID() }
                         SecureField("Mật khẩu Personal Hotspot", text: $hotspot.password)
-                            .textFieldStyle(.roundedBorder).focused($focused, equals: .password)\n                            .onChange(of: hotspot.password) { _ in hotspot.userEditedPassword() }
+                            .textFieldStyle(.roundedBorder)
+                            .focused($focused, equals: .password)
+                            .frame(minHeight: 48)
+                            .onChange(of: hotspot.password) { _ in hotspot.userEditedPassword() }
+
                         HStack {
                             Text("SSID: \(hotspot.ssidSource.rawValue)")
                             Spacer()
                             Text("Password: \(hotspot.passwordSource.rawValue)")
                         }
-                        .font(.caption).foregroundStyle(.secondary)
-                        Text(hotspot.status).font(.footnote).foregroundStyle(.secondary)
-                        Button("Đọc lại thông tin Hotspot") { hotspot.resetAndDetect() }
-                            .buttonStyle(LabButtonStyle())
-                            .font(.footnote).foregroundStyle(.secondary)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                        Text(hotspot.status)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+
+                        Button("Đọc lại thông tin Hotspot") {
+                            closeKeyboard()
+                            hotspot.resetAndDetect()
+                        }
+                        .buttonStyle(LabButtonStyle())
                     }
 
-                    card("2. Cấu hình Xprinter") {
-                        Button("Tìm & Cấu hình Xprinter") { closeKeyboard(); provision.provisionV1(ssid: hotspot.ssid, password: hotspot.password) }
-                            .buttonStyle(LabButtonStyle())
-                        Button("Debug: thử ESP-Touch V2") { closeKeyboard(); provision.provisionV2(ssid: hotspot.ssid, password: hotspot.password) }
-                            .buttonStyle(LabButtonStyle())
+                    card("2. Máy in Xprinter") {
+                        Button("Tìm & Cấu hình Xprinter") {
+                            closeKeyboard()
+                            provision.provisionV1(ssid: hotspot.ssid, password: hotspot.password)
+                        }
+                        .buttonStyle(LabButtonStyle())
+
+                        Text(provision.state)
+                            .font(.headline)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
                         Button("Hủy cấu hình", role: .cancel) { provision.cancel() }
                             .frame(maxWidth: .infinity, minHeight: 44)
-                        Text(provision.state).font(.headline).frame(maxWidth: .infinity, alignment: .leading)
-                        if !provision.engine.isEmpty {
-                            Text("Engine: \(provision.engine)").font(.caption).foregroundStyle(.secondary)
+
+                        DisclosureGroup("Diagnostic / thử nghiệm") {
+                            VStack(spacing: 12) {
+                                Button("Debug: ESP-Touch V2") {
+                                    closeKeyboard()
+                                    provision.provisionV2(ssid: hotspot.ssid, password: hotspot.password)
+                                }
+                                .buttonStyle(LabButtonStyle())
+
+                                Button("Quét interface") { diagnostic.refresh() }
+                                    .buttonStyle(LabButtonStyle())
+
+                                Button("Probe UDP broadcast") {
+                                    closeKeyboard()
+                                    diagnostic.probeAll()
+                                }
+                                .buttonStyle(LabButtonStyle())
+
+                                Text(diagnostic.status)
+                                    .font(.caption)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                                ForEach(diagnostic.interfaces) { item in
+                                    Text("\(item.name) #\(item.index) · \(item.address) · mask \(item.netmask) · broadcast \(item.broadcast)")
+                                        .font(.system(.caption2, design: .monospaced))
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+
+                                ForEach(diagnostic.probes) { p in
+                                    Text("\(p.interface): \(p.result) · \(p.source) → \(p.destination) · errno=\(p.errnoCode)")
+                                        .font(.system(.caption2, design: .monospaced))
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                            }
+                            .padding(.top, 10)
                         }
                     }
 
@@ -77,11 +105,22 @@ struct ContentView: View {
                             .keyboardType(.numbersAndPunctuation)
                         field("Port", text: $printerPort, field: .port)
                             .keyboardType(.numberPad)
-                        Button("Test TCP") { closeKeyboard(); printer.test(host: printerIP, port: UInt16(printerPort) ?? 9100) }
-                            .buttonStyle(LabButtonStyle())
-                        Button("In thử ESC/POS") { closeKeyboard(); printer.printTest(host: printerIP, port: UInt16(printerPort) ?? 9100) }
-                            .buttonStyle(LabButtonStyle())
-                        Text(printer.state).font(.headline).frame(maxWidth: .infinity, alignment: .leading)
+
+                        Button("Test TCP") {
+                            closeKeyboard()
+                            printer.test(host: printerIP, port: UInt16(printerPort) ?? 9100)
+                        }
+                        .buttonStyle(LabButtonStyle())
+
+                        Button("In thử ESC/POS") {
+                            closeKeyboard()
+                            printer.printTest(host: printerIP, port: UInt16(printerPort) ?? 9100)
+                        }
+                        .buttonStyle(LabButtonStyle())
+
+                        Text(printer.state)
+                            .font(.headline)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
 
                     card("Log in") {
@@ -104,13 +143,15 @@ struct ContentView: View {
                     Button("Xong") { closeKeyboard() }
                 }
             }
-            .task { hotspot.resetAndDetect() }\n            .onChange(of: provision.discoveredIP) { newValue in
+            .task { hotspot.resetAndDetect() }
+            .onChange(of: provision.discoveredIP) { newValue in
                 if !newValue.isEmpty { printerIP = newValue }
             }
         }
     }
 
-    @ViewBuilder private func card<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+    @ViewBuilder
+    private func card<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             Text(title).font(.title3.bold())
             content()
