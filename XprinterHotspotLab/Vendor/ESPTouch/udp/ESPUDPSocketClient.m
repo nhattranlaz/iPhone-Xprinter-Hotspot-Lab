@@ -138,7 +138,7 @@
     // LAB-3: ESP-Touch's legacy x.y.z.255 assumption is wrong for iPhone
     // Personal Hotspot /28 (e.g. 172.20.10.1 -> broadcast 172.20.10.15).
     // Discover the bridge IPv4/netmask and force this socket onto that interface.
-    NSString *effectiveHost = targetHostName;
+    NSString *effectiveHost = targetHostName;\n    BOOL labIsMulticast = [targetHostName hasPrefix:@"234."];
     struct ifaddrs *ifaddr = NULL;
     if (getifaddrs(&ifaddr) == 0) {
         for (struct ifaddrs *ifa = ifaddr; ifa; ifa = ifa->ifa_next) {
@@ -156,7 +156,7 @@
             struct in_addr baddr = { htonl(broadcastHost) };
             char buf[INET_ADDRSTRLEN] = {0};
             inet_ntop(AF_INET, &baddr, buf, sizeof(buf));
-            effectiveHost = [NSString stringWithUTF8String:buf];
+            if (!labIsMulticast) { effectiveHost = [NSString stringWithUTF8String:buf]; }
             unsigned int ifindex = if_nametoindex(ifa->ifa_name);
             int rc = setsockopt(self._sck_fd4, IPPROTO_IP, IP_BOUND_IF, &ifindex, sizeof(ifindex));
             NSLog(@"LAB3 ESPTouch V1 runtime candidate interface=%@ index=%u ip=%s broadcast=%@ IP_BOUND_IF rc=%d errno=%d",
@@ -165,7 +165,7 @@
         }
         freeifaddrs(ifaddr);
     }
-    bool isBroadcast = YES;
+    bool isBroadcast = !labIsMulticast;
     socklen_t addr_len;
     struct sockaddr_in target_addr;
     memset(&target_addr, 0, sizeof(target_addr));
