@@ -1,47 +1,74 @@
 package com.wwt2.xprinterhotspotlab
 import android.Manifest
 import android.content.Context
-import android.content.pm.PackageManager
-import android.net.*
+import android.net.ConnectivityManager
+import android.net.wifi.WifiInfo
 import android.net.wifi.WifiManager
 import android.os.Bundle
 import android.text.InputType
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
-import java.net.Inet4Address
+import com.espressif.iot.esptouch.EsptouchTask
 import java.net.InetSocketAddress
 import java.net.Socket
+
 class MainActivity:AppCompatActivity(){
- lateinit var out:TextView; lateinit var ssid:EditText; lateinit var bssid:EditText; lateinit var pwd:EditText; lateinit var ip:EditText
- override fun onCreate(b:Bundle?){super.onCreate(b); requestPermissions()
-  val s=ScrollView(this); val r=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(32,32,32,48)}
-  fun t(x:String)=TextView(this).apply{text=x;textSize=21f;setPadding(0,22,0,12)}
-  fun e(x:String)=EditText(this).apply{hint=x}
-  fun bt(x:String,f:()->Unit)=Button(this).apply{text=x;setOnClickListener{f()}}
-  r.addView(t("1 · Đọc iPhone Hotspot"));r.addView(bt("Đọc SSID / BSSID / IP / Gateway / Prefix"){readWifi()})
-  r.addView(t("2 · Đọc Android Hotspot"));r.addView(bt("Đọc interface / tethering runtime"){readRuntime()})
-  r.addView(t("3 · Cấu hình Xprinter"));ssid=e("SSID");bssid=e("BSSID (nếu có)");pwd=e("Password").apply{inputType=129};ip=e("IP máy in")
-  listOf(ssid,bssid,pwd).forEach{r.addView(it)}
-  r.addView(bt("ESP-Touch: cấu hình máy in"){provision()});r.addView(ip)
-  r.addView(bt("Test TCP 9100"){test(false)});r.addView(bt("In thử ESC/POS"){test(true)})
-  r.addView(t("Diagnostic"));out=TextView(this).apply{setTextIsSelectable(true);typeface=android.graphics.Typeface.MONOSPACE;text="Chưa có dữ liệu"};r.addView(out);s.addView(r);setContentView(s)
+ private lateinit var ssid:EditText
+ private lateinit var pwd:EditText
+ private lateinit var ip:EditText
+ private lateinit var status:TextView
+
+ override fun onCreate(b:Bundle?){super.onCreate(b)
+  val perms=mutableListOf(Manifest.permission.ACCESS_FINE_LOCATION)
+  if(android.os.Build.VERSION.SDK_INT>=33)perms+=Manifest.permission.NEARBY_WIFI_DEVICES
+  ActivityCompat.requestPermissions(this,perms.toTypedArray(),9)
+  val scroll=ScrollView(this);val root=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(36,42,36,60)}
+  fun title(x:String)=TextView(this).apply{text=x;textSize=24f;setPadding(0,12,0,22)}
+  fun field(x:String)=EditText(this).apply{hint=x;setPadding(16,14,16,14)}
+  fun btn(x:String,fn:()->Unit)=Button(this).apply{text=x;setOnClickListener{fn()}}
+  root.addView(title("Xprinter Wi-Fi Setup"))
+  root.addView(TextView(this).apply{text="Đưa máy in vào chế độ chờ kết nối Wi-Fi. Nhập SSID và mật khẩu rồi bấm Cấu hình máy in."})
+  ssid=field("SSID Wi-Fi");pwd=field("Mật khẩu Wi-Fi").apply{inputType=129}
+  root.addView(ssid);root.addView(pwd)
+  root.addView(btn("CẤU HÌNH MÁY IN"){configurePrinter()})
+  ip=field("IP máy in (tự điền nếu nhận ACK)");root.addView(ip)
+  root.addView(btn("TEST TCP 9100"){test(false)})
+  root.addView(btn("IN THỬ"){test(true)})
+  status=TextView(this).apply{setPadding(0,22,0,0);setTextIsSelectable(true);text="Sẵn sàng"};root.addView(status)
+  scroll.addView(root);setContentView(scroll)
  }
- fun requestPermissions(){val p=mutableListOf(Manifest.permission.ACCESS_FINE_LOCATION);if(android.os.Build.VERSION.SDK_INT>=33)p+=Manifest.permission.NEARBY_WIFI_DEVICES;ActivityCompat.requestPermissions(this,p.toTypedArray(),7)}
- @Suppress("DEPRECATION") fun readWifi(){try{
+
+ @Suppress("DEPRECATION")
+ private fun currentBssid():String?=try{
   val cm=getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
   val n=cm.activeNetwork
-  val caps=n?.let{cm.getNetworkCapabilities(it)}
-  val wi=(caps?.transportInfo as? android.net.wifi.WifiInfo) ?: (applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager).connectionInfo
-  val lp=n?.let{cm.getLinkProperties(it)}
-  val a=lp?.linkAddresses?.firstOrNull{it.address is Inet4Address}
-  val g=lp?.routes?.firstOrNull{it.isDefaultRoute}?.gateway?.hostAddress
-  val ss=wi.ssid?.trim('"').orEmpty(); val bs=wi.bssid.orEmpty()
-  if(ss!="<unknown ssid>")ssid.setText(ss); if(bs!="02:00:00:00:00:00")bssid.setText(bs)
-  log("CONNECTED WIFI\\nSSID="+ss+"\\nBSSID="+bs+"\\nIP="+a?.address?.hostAddress+"\\nPREFIX="+a?.prefixLength+"\\nGATEWAY="+g+"\\nFREQ="+wi.frequency+" MHz")
- }catch(e:Throwable){log("WIFI INFO UNAVAILABLE\\n"+e.javaClass.simpleName+": "+e.message+"\\nKiểm tra quyền Nearby devices/Location rồi thử lại.")}}
- fun readRuntime(){try{val cm=getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager;val x=cm.allNetworks.mapNotNull{n->try{val l=cm.getLinkProperties(n)?:return@mapNotNull null;l.interfaceName+": "+l.linkAddresses.joinToString{it.address.hostAddress+"/"+it.prefixLength}}catch(_:Throwable){null}};log("ANDROID RUNTIME\\n"+x.joinToString("\\n")+"\\nUnavailable fields are never fabricated.")}catch(e:Throwable){log("HOTSPOT RUNTIME UNAVAILABLE\\n"+e.javaClass.simpleName+": "+e.message)}}
- fun provision(){val s=ssid.text.toString().trim();if(s.isEmpty()){log("SSID trống");return};log("ESP-Touch starting…");Thread{try{val x=EspTouchV1.provision(this,s,bssid.text.toString().trim(),pwd.text.toString());runOnUiThread{if(x!=null){ip.setText(x);log("ACK RECEIVED IP="+x)}else log("ESP-Touch timeout")}}catch(e:Throwable){runOnUiThread{log("ESP-Touch ERROR "+e.message)}}}.start()}
- fun test(print:Boolean){val h=ip.text.toString().trim();Thread{try{Socket().use{s->s.connect(InetSocketAddress(h,9100),2500);if(print){s.getOutputStream().write("\\u001b@XPRINTER ANDROID HOTSPOT LAB\\nTCP 9100 PASS\\n\\n\\n".toByteArray());s.getOutputStream().flush()}};runOnUiThread{log(if(print)"PRINT SENT PASS" else "TCP 9100 PASS")}}catch(e:Throwable){runOnUiThread{log("FAIL "+e.message)}}}.start()}
- fun log(x:String){out.text=x}
+  val wi=(n?.let{cm.getNetworkCapabilities(it)}?.transportInfo as? WifiInfo)
+    ?: (applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager).connectionInfo
+  wi.bssid?.takeIf{it.isNotBlank()&&it!="02:00:00:00:00:00"&&it!="00:00:00:00:00:00"}
+ }catch(_:Throwable){null}
+
+ private fun configurePrinter(){
+  val s=ssid.text.toString().trim();val p=pwd.text.toString()
+  if(s.isEmpty()){status.text="Nhập SSID Wi-Fi";return}
+  val b=currentBssid()
+  if(b==null){status.text="Không lấy được BSSID thật của Wi-Fi hiện tại. Không gửi BSSID giả. Bản này dùng SDK ESP-Touch chính thức nên dừng tại đây.";return}
+  status.text="Đang cấu hình bằng ESP-Touch chính thức…\nSSID="+s+"\nBSSID="+b
+  Thread{
+   try{
+    val task=EsptouchTask(s,b,p,applicationContext)
+    task.setPackageBroadcast(false)
+    val r=task.executeForResult()
+    runOnUiThread{
+     if(r.isSuc){val host=r.inetAddress?.hostAddress.orEmpty();if(host.isNotEmpty())ip.setText(host);status.text="ESP-Touch PASS\nIP="+host+"\nDevice BSSID="+r.bssid}
+     else status.text="Không nhận ACK. Chưa kết luận máy in không join mạng."
+    }
+   }catch(e:Throwable){runOnUiThread{status.text="ESP-Touch ERROR\n"+e.javaClass.simpleName+": "+e.message}}
+  }.start()
+ }
+
+ private fun test(print:Boolean){
+  val h=ip.text.toString().trim();if(h.isEmpty()){status.text="Chưa có IP máy in";return}
+  Thread{try{Socket().use{s->s.connect(InetSocketAddress(h,9100),2500);if(print){s.getOutputStream().write("\u001b@XPRINTER LAB\nTCP 9100 PASS\n\n\n".toByteArray());s.getOutputStream().flush()}};runOnUiThread{status.text=if(print)"PRINT SENT PASS" else "TCP 9100 PASS"}}catch(e:Throwable){runOnUiThread{status.text="TCP FAIL: "+e.message}}}.start()
+ }
 }
