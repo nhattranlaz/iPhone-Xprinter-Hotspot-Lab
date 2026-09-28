@@ -44,17 +44,25 @@ struct ContentView: View {
                     }
 
                     card("1. Wi-Fi của iPhone") {
-                        field("Tên Personal Hotspot", text: $hotspotSSID, field: .ssid)
-                        SecureField("Mật khẩu Personal Hotspot", text: $hotspotPassword)
-                            .textFieldStyle(.roundedBorder).focused($focused, equals: .password)
-                        Text("Không dùng BSSID giả. Cả V1 và V2 chỉ nhận thông tin chúng ta thực sự biết.")
+                        field("Tên Personal Hotspot", text: $hotspot.ssid, field: .ssid)\n                            .onChange(of: hotspot.ssid) { _ in hotspot.userEditedSSID() }
+                        SecureField("Mật khẩu Personal Hotspot", text: $hotspot.password)
+                            .textFieldStyle(.roundedBorder).focused($focused, equals: .password)\n                            .onChange(of: hotspot.password) { _ in hotspot.userEditedPassword() }
+                        HStack {
+                            Text("SSID: \(hotspot.ssidSource.rawValue)")
+                            Spacer()
+                            Text("Password: \(hotspot.passwordSource.rawValue)")
+                        }
+                        .font(.caption).foregroundStyle(.secondary)
+                        Text(hotspot.status).font(.footnote).foregroundStyle(.secondary)
+                        Button("Đọc lại thông tin Hotspot") { hotspot.resetAndDetect() }
+                            .buttonStyle(LabButtonStyle())
                             .font(.footnote).foregroundStyle(.secondary)
                     }
 
                     card("2. Cấu hình Xprinter") {
-                        Button("Thử ESP-Touch V1") { closeKeyboard(); provision.provisionV1(ssid: hotspotSSID, password: hotspotPassword) }
+                        Button("Tìm & Cấu hình Xprinter") { closeKeyboard(); provision.provisionV1(ssid: hotspot.ssid, password: hotspot.password) }
                             .buttonStyle(LabButtonStyle())
-                        Button("Thử ESP-Touch V2") { closeKeyboard(); provision.provisionV2(ssid: hotspotSSID, password: hotspotPassword) }
+                        Button("Debug: thử ESP-Touch V2") { closeKeyboard(); provision.provisionV2(ssid: hotspot.ssid, password: hotspot.password) }
                             .buttonStyle(LabButtonStyle())
                         Button("Hủy cấu hình", role: .cancel) { provision.cancel() }
                             .frame(maxWidth: .infinity, minHeight: 44)
@@ -96,7 +104,7 @@ struct ContentView: View {
                     Button("Xong") { closeKeyboard() }
                 }
             }
-            .onChange(of: provision.discoveredIP) { newValue in
+            .task { hotspot.resetAndDetect() }\n            .onChange(of: provision.discoveredIP) { newValue in
                 if !newValue.isEmpty { printerIP = newValue }
             }
         }
