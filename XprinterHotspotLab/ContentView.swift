@@ -63,41 +63,7 @@ struct ContentView: View {
                         Button("Hủy cấu hình", role: .cancel) { provision.cancel() }
                             .frame(maxWidth: .infinity, minHeight: 44)
 
-                        DisclosureGroup("Diagnostic / thử nghiệm") {
-                            VStack(spacing: 12) {
-                                Button("Debug: ESP-Touch V2") {
-                                    closeKeyboard()
-                                    provision.provisionV2(ssid: hotspot.ssid, password: hotspot.password)
-                                }
-                                .buttonStyle(LabButtonStyle())
 
-                                Button("Quét interface") { diagnostic.refresh() }
-                                    .buttonStyle(LabButtonStyle())
-
-                                Button("Probe UDP broadcast") {
-                                    closeKeyboard()
-                                    diagnostic.probeAll()
-                                }
-                                .buttonStyle(LabButtonStyle())
-
-                                Text(diagnostic.status)
-                                    .font(.caption)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                                ForEach(diagnostic.interfaces) { item in
-                                    Text("\(item.name) #\(item.index) · \(item.address) · mask \(item.netmask) · broadcast \(item.broadcast)")
-                                        .font(.system(.caption2, design: .monospaced))
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                }
-
-                                ForEach(diagnostic.probes) { p in
-                                    Text("\(p.interface): \(p.result) · \(p.source) → \(p.destination) · errno=\(p.errnoCode)")
-                                        .font(.system(.caption2, design: .monospaced))
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                }
-                            }
-                            .padding(.top, 10)
-                        }
                     }
 
                     card("3. Kiểm tra in") {
