@@ -198,7 +198,8 @@
         Byte bytes[dataLen];
         [data getBytes:bytes length:dataLen];
         // send data
-        ssize_t sent = sendto(self._sck_fd4, bytes, dataLen, 0, (struct sockaddr*)&target_addr, addr_len);\n        if (sent < 0)
+        ssize_t sent = sendto(self._sck_fd4, bytes, dataLen, 0, (struct sockaddr*)&target_addr, addr_len);
+        if (sent < 0)
         {
             if (DEBUG_ON)
             {
