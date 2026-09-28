@@ -10,13 +10,13 @@ final class ProvisioningClient: NSObject, ObservableObject, ESPProvisionerDelega
     func provisionV1(ssid: String, password: String) {
         let s = ssid.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !s.isEmpty else { state = "Nhập tên Personal Hotspot"; return }
-        engine = "ESP-Touch V1"
-        state = "V1 đang gửi SSID/password…"
+        engine = "ESP-Touch V1 Multicast"
+        state = "V1 Multicast: đang gửi Guide/Datum packets…"
         discoveredIP = ""
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             // Do not invent a BSSID. Empty string lets the SDK encode only the information we actually have.
             let task = ESPTouchTask(apSsid: s, andApBssid: "", andApPwd: password)
-            task?.setPackageBroadcast(true)
+            // Original ESP-Touch V1 multicast sequence (234.x.x.x).\n            task?.setPackageBroadcast(false)
             Task { @MainActor in self?.v1Task = task }
             let result = task?.executeForResult()
             Task { @MainActor in
@@ -27,7 +27,7 @@ final class ProvisioningClient: NSObject, ObservableObject, ESPProvisionerDelega
                 } else if result?.isCancelled == true {
                     self.state = "V1 đã hủy"
                 } else {
-                    self.state = "V1 chưa nhận phản hồi"
+                    self.state = "V1 Multicast: hết thời gian, chưa nhận ACK"
                 }
             }
         }
