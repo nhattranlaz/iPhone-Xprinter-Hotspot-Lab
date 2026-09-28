@@ -135,10 +135,9 @@
 - (void) sendDataWithBytesArray2Ipv4: (NSArray *) bytesArray2 Offset: (NSUInteger) offset Count: (NSUInteger) count ToTargetHostName: (NSString *)targetHostName WithPort: (int) port
                      andInterval: (long) interval
 {
-    // LAB-3: ESP-Touch's legacy x.y.z.255 assumption is wrong for iPhone
-    // Personal Hotspot /28 (e.g. 172.20.10.1 -> broadcast 172.20.10.15).
-    // Discover the bridge IPv4/netmask and force this socket onto that interface.
-    NSString *effectiveHost = targetHostName;\n    BOOL labIsMulticast = [targetHostName hasPrefix:@"234."];
+    // LAB-3 runtime resolver: derive routing/broadcast from the active interface; preserve multicast targets.
+    NSString *effectiveHost = targetHostName;
+    BOOL labIsMulticast = [targetHostName hasPrefix:@"234."];
     struct ifaddrs *ifaddr = NULL;
     if (getifaddrs(&ifaddr) == 0) {
         for (struct ifaddrs *ifa = ifaddr; ifa; ifa = ifa->ifa_next) {
