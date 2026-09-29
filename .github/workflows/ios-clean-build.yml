@@ -1,0 +1,18 @@
+name: iOS Clean Build
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'ios-clean/**'
+      - 'ios-clean-project.yml'
+      - '.github/workflows/ios-clean-build.yml'
+jobs:
+  build:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install xcodegen
+      - name: Generate isolated project
+        run: xcodegen generate --spec ios-clean-project.yml
+      - name: Build clean target
+        run: xcodebuild -project XprinterSetupClean.xcodeproj -scheme XprinterSetupClean -sdk iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build
