@@ -12,7 +12,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh api repos/${{ github.repository }}/actions/artifacts/11028546458/zip > verified.zip
+          gh api repos/${{ github.repository }}/actions/artifacts/11041091316/zip > verified.zip
           unzip -q verified.zip -d verified
           IPA=$(find verified -name '*.ipa' -print -quit)
           test -s "$IPA"
@@ -36,3 +36,5 @@ jobs:
           test -n "$KEY_ID"
           test -n "$ISSUER_ID"
           xcrun altool --upload-app -f "$IPA" -t ios --apiKey "$KEY_ID" --apiIssuer "$ISSUER_ID"
+
+# upload-canonical-4
