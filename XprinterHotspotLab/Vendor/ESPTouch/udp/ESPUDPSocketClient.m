@@ -10,9 +10,6 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <ifaddrs.h>
-#include <net/if.h>
-#include <errno.h>
 #import <netdb.h>
 #include "ESPTouchTask.h"
 #import "ESP_NetUtil.h"
@@ -135,41 +132,13 @@
 - (void) sendDataWithBytesArray2Ipv4: (NSArray *) bytesArray2 Offset: (NSUInteger) offset Count: (NSUInteger) count ToTargetHostName: (NSString *)targetHostName WithPort: (int) port
                      andInterval: (long) interval
 {
-    // LAB-3 runtime resolver: derive routing/broadcast from the active interface; preserve multicast targets.
-    NSString *effectiveHost = targetHostName;
-    BOOL labIsMulticast = [targetHostName hasPrefix:@"234."];
-    struct ifaddrs *ifaddr = NULL;
-    if (getifaddrs(&ifaddr) == 0) {
-        for (struct ifaddrs *ifa = ifaddr; ifa; ifa = ifa->ifa_next) {
-            if (!ifa->ifa_addr || ifa->ifa_addr->sa_family != AF_INET || !(ifa->ifa_flags & IFF_UP)) continue;
-            NSString *name = [NSString stringWithUTF8String:ifa->ifa_name];
-            // Runtime resolver: never assume bridge/en/pdp names or a fixed subnet.
-            // Reject only loopback and interfaces without a usable non-host IPv4 netmask.
-            if (ifa->ifa_flags & IFF_LOOPBACK) continue;
-            if (!ifa->ifa_netmask) continue;
-            struct sockaddr_in *sin = (struct sockaddr_in *)ifa->ifa_addr;
-            struct sockaddr_in *mask = (struct sockaddr_in *)ifa->ifa_netmask;
-            uint32_t ipHost = ntohl(sin->sin_addr.s_addr);
-            uint32_t maskHost = mask ? ntohl(mask->sin_addr.s_addr) : 0xffffffff;
-            uint32_t broadcastHost = ipHost | ~maskHost;
-            struct in_addr baddr = { htonl(broadcastHost) };
-            char buf[INET_ADDRSTRLEN] = {0};
-            inet_ntop(AF_INET, &baddr, buf, sizeof(buf));
-            if (!labIsMulticast) { effectiveHost = [NSString stringWithUTF8String:buf]; }
-            unsigned int ifindex = if_nametoindex(ifa->ifa_name);
-            int rc = setsockopt(self._sck_fd4, IPPROTO_IP, IP_BOUND_IF, &ifindex, sizeof(ifindex));
-            NSLog(@"LAB3 ESPTouch V1 runtime candidate interface=%@ index=%u ip=%s broadcast=%@ IP_BOUND_IF rc=%d errno=%d",
-                  name, ifindex, inet_ntoa(sin->sin_addr), effectiveHost, rc, errno);
-            break;
-        }
-        freeifaddrs(ifaddr);
-    }
-    bool isBroadcast = !labIsMulticast;
+    // init socket parameters
+    bool isBroadcast = [targetHostName hasSuffix:@"255"];
     socklen_t addr_len;
     struct sockaddr_in target_addr;
     memset(&target_addr, 0, sizeof(target_addr));
     target_addr.sin_family = AF_INET;
-    target_addr.sin_addr.s_addr = inet_addr([effectiveHost cStringUsingEncoding:NSASCIIStringEncoding]);
+    target_addr.sin_addr.s_addr = inet_addr([targetHostName cStringUsingEncoding:NSASCIIStringEncoding]);
     target_addr.sin_port = htons(port);
     addr_len = sizeof(target_addr);
     if (isBroadcast) {
@@ -197,12 +166,11 @@
         Byte bytes[dataLen];
         [data getBytes:bytes length:dataLen];
         // send data
-        ssize_t sent = sendto(self._sck_fd4, bytes, dataLen, 0, (struct sockaddr*)&target_addr, addr_len);
-        if (sent < 0)
+        if (sendto(self._sck_fd4, bytes, dataLen, 0, (struct sockaddr*)&target_addr, addr_len) < 0)
         {
             if (DEBUG_ON)
             {
-                NSLog(@"LAB3 ESPTouch V1 sendto FAIL host=%@ port=%d len=%lu errno=%d", effectiveHost, port, (unsigned long)dataLen, errno);
+                perror("client: sendto fail, but just ignore it\n");
             }
             // for the Ap will make some troubles when the phone send too many UDP packets,
             // but we don't expect the UDP packet received by others, so just ignore it
