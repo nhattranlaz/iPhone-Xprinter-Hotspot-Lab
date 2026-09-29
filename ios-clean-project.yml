@@ -1,0 +1,37 @@
+name: XprinterSetupClean
+options:
+  bundleIdPrefix: com.nhattranlaz
+  deploymentTarget:
+    iOS: "16.0"
+settings:
+  base:
+    SWIFT_VERSION: 5.0
+targets:
+  XprinterSetupClean:
+    type: application
+    platform: iOS
+    sources:
+      - ios-clean/XprinterSetupApp.swift
+      - ios-clean/ContentView.swift
+      - ios-clean/PrinterProvisioner.swift
+      - ios-clean/PrinterTCPClient.swift
+      - ios-clean/Vendor
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.nhattranlaz.xprinterhotspotlab
+        PRODUCT_NAME: Xprinter Setup Clean
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Xprinter Setup Clean
+        MARKETING_VERSION: "2.0"
+        CURRENT_PROJECT_VERSION: "20001"
+        INFOPLIST_KEY_NSLocalNetworkUsageDescription: Cấu hình và kết nối máy in Xprinter trong mạng Wi-Fi.
+        TARGETED_DEVICE_FAMILY: "1"
+        CODE_SIGN_STYLE: Automatic
+        SWIFT_OBJC_BRIDGING_HEADER: ios-clean/Bridging-Header.h
+        HEADER_SEARCH_PATHS:
+          - "$(SRCROOT)/ios-clean/Vendor/ESPUtils"
+          - "$(SRCROOT)/ios-clean/Vendor/ESPTouch/esptouch"
+          - "$(SRCROOT)/ios-clean/Vendor/ESPTouch/protocol"
+          - "$(SRCROOT)/ios-clean/Vendor/ESPTouch/task"
+          - "$(SRCROOT)/ios-clean/Vendor/ESPTouch/udp"
+          - "$(SRCROOT)/ios-clean/Vendor/CocoaAsyncSocket/GCD"
