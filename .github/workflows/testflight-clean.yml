@@ -1,9 +1,6 @@
 name: TestFlight Clean
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - '.github/workflows/testflight-clean.yml'
 jobs:
   upload:
     runs-on: macos-26
@@ -172,4 +169,3 @@ jobs:
 
 # signing-profile-refresh-20260927-4
 
-# clean-trigger-5
