@@ -32,34 +32,6 @@ jobs:
           xcrun --sdk iphoneos --show-sdk-version
       - name: Install XcodeGen
         run: brew install xcodegen
-      - name: Generate LAB app icons
-        run: |
-          python3 - <<'PY'
-          import struct, zlib, pathlib
-          out = pathlib.Path("XprinterHotspotLab/Assets.xcassets/AppIcon.appiconset")
-          out.mkdir(parents=True, exist_ok=True)
-          def png(path, size):
-              # Opaque technical LAB icon: dark field with a white printer-like center block.
-              rows = []
-              for y in range(size):
-                  row = bytearray([0])
-                  for x in range(size):
-                      inside = size*0.20 < x < size*0.80 and size*0.30 < y < size*0.72
-                      paper = size*0.32 < x < size*0.68 and size*0.16 < y < size*0.42
-                      if inside or paper:
-                          row += bytes((245,245,245,255))
-                      else:
-                          row += bytes((25,32,42,255))
-                  rows.append(bytes(row))
-              raw=b"".join(rows)
-              def chunk(t,d):
-                  return struct.pack(">I",len(d))+t+d+struct.pack(">I",zlib.crc32(t+d)&0xffffffff)
-              data=b"\x89PNG\r\n\x1a\n"+chunk(b"IHDR",struct.pack(">IIBBBBB",size,size,8,6,0,0,0))+chunk(b"IDAT",zlib.compress(raw,9))+chunk(b"IEND",b"")
-              path.write_bytes(data)
-          png(out/"Icon-60@2x.png",120)
-          png(out/"Icon-60@3x.png",180)
-          png(out/"Icon-1024.png",1024)
-          PY
       - name: Generate clean app icons
         run: |
           python3 - <<'PY'
@@ -161,6 +133,15 @@ jobs:
           /usr/libexec/PlistBuddy -c 'Print :NSLocalNetworkUsageDescription' "$APP/Info.plist"
           test -x "$APP/Xprinter Setup Clean"
           codesign --verify --deep --strict --verbose=2 "$APP"
+          test -s "$APP/Assets.car"
+          xcrun --sdk iphoneos assetutil --info "$APP/Assets.car" > "$RUNNER_TEMP/assets-info.json"
+          cat "$RUNNER_TEMP/assets-info.json"
+          grep -q '"Name" : "AppIcon"' "$RUNNER_TEMP/assets-info.json"
+          grep -q '"PixelWidth" : 120' "$RUNNER_TEMP/assets-info.json"
+          grep -q '"PixelHeight" : 120' "$RUNNER_TEMP/assets-info.json"
+          grep -q '"PixelWidth" : 180' "$RUNNER_TEMP/assets-info.json"
+          grep -q '"PixelWidth" : 1024' "$RUNNER_TEMP/assets-info.json"
+          echo "COMPILED APPICON RENDITIONS PASS"
           echo "=== APP FILES ==="
           find "$APP" -maxdepth 2 -type f -print
           echo "CLEAN IPA PREFLIGHT PASS"
