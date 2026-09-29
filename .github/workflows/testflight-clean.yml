@@ -137,6 +137,23 @@ jobs:
             CODE_SIGN_IDENTITY="Apple Distribution" \
             PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
             archive
+      - name: Verify archive icon contract
+        run: |
+          APP="$RUNNER_TEMP/XprinterSetupClean.xcarchive/Products/Applications/Xprinter Setup Clean.app"
+          test -d "$APP"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIconName' "$APP/Info.plist"
+          find "$APP" -maxdepth 2 -type f -name '*.png' -print
+          python3 - "$APP" <<'PY'
+          import pathlib, struct, sys
+          app=pathlib.Path(sys.argv[1])
+          sizes=[]
+          for p in app.rglob('*.png'):
+            b=p.read_bytes()
+            if b[:8]==b'\x89PNG\r\n\x1a\n':
+              w,h=struct.unpack('>II',b[16:24]); sizes.append((w,h,str(p)))
+          print('PNG sizes:', sizes)
+          assert any(w==120 and h==120 for w,h,_ in sizes), 'Archive missing 120x120 app icon'
+          PY
       - name: Export IPA
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
