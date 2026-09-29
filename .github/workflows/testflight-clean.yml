@@ -1,6 +1,9 @@
 name: TestFlight Clean
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/testflight-clean.yml'
 jobs:
   upload:
     runs-on: macos-26
