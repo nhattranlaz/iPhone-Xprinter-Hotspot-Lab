@@ -164,3 +164,17 @@ jobs:
           echo "=== APP FILES ==="
           find "$APP" -maxdepth 2 -type f -print
           echo "CLEAN IPA PREFLIGHT PASS"
+
+      - name: Stage verified IPA
+        run: |
+          IPA=$(find "$RUNNER_TEMP/export" -name '*.ipa' -print -quit)
+          test -s "$IPA"
+          mkdir -p verified-output
+          cp "$IPA" verified-output/XprinterSetupClean-verified.ipa
+      - name: Upload verified IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: xprinter-ios-clean-verified-ipa
+          path: verified-output/XprinterSetupClean-verified.ipa
+          if-no-files-found: error
+          retention-days: 7
