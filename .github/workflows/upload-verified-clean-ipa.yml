@@ -1,0 +1,38 @@
+name: Upload Verified Clean IPA
+on:
+  push:
+    paths:
+      - '.github/workflows/upload-verified-clean-ipa.yml'
+  workflow_dispatch:
+jobs:
+  upload:
+    runs-on: macos-26
+    steps:
+      - name: Download exact verified artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api repos/${{ github.repository }}/actions/artifacts/11028546458/zip > verified.zip
+          unzip -q verified.zip -d verified
+          IPA=$(find verified -name '*.ipa' -print -quit)
+          test -s "$IPA"
+          echo "IPA=$IPA" >> "$GITHUB_ENV"
+          shasum -a 256 "$IPA"
+      - name: Configure App Store Connect API key
+        env:
+          KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
+          KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+        run: |
+          test -n "$KEY"
+          test -n "$KEY_ID"
+          mkdir -p "$HOME/.appstoreconnect/private_keys"
+          printf '%s' "$KEY" > "$HOME/.appstoreconnect/private_keys/AuthKey_$KEY_ID.p8"
+          chmod 600 "$HOME/.appstoreconnect/private_keys/AuthKey_$KEY_ID.p8"
+      - name: Upload exact verified IPA
+        env:
+          KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          test -n "$KEY_ID"
+          test -n "$ISSUER_ID"
+          xcrun altool --upload-app -f "$IPA" -t ios --apiKey "$KEY_ID" --apiIssuer "$ISSUER_ID"
