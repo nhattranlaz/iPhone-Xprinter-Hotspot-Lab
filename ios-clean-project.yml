@@ -16,7 +16,6 @@ targets:
       - ios-clean/PrinterProvisioner.swift
       - ios-clean/PrinterTCPClient.swift
       - ios-clean/Vendor
-    resources:
       - ios-clean/Assets.xcassets
     settings:
       base:
