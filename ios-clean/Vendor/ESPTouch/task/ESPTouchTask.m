@@ -9,6 +9,7 @@
 //  The usage of NSCondition refer to: https://gist.github.com/prachigauriar/8118909
 
 #import "ESPTouchTask.h"
+#import <UIKit/UIKit.h>
 #import "ESP_ByteUtil.h"
 #import "ESPTouchGenerator.h"
 #import "ESPUDPSocketClient.h"
