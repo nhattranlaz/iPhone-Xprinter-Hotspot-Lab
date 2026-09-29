@@ -24,6 +24,7 @@ targets:
         PRODUCT_NAME: Xprinter Setup Clean
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: Xprinter Setup Clean
+        INFOPLIST_KEY_CFBundleIcons_CFBundlePrimaryIcon_CFBundleIconName: AppIcon
         INFOPLIST_KEY_CFBundleIconName: AppIcon
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         MARKETING_VERSION: "2.0"
