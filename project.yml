@@ -11,7 +11,12 @@ targets:
     type: application
     platform: iOS
     sources:
-      - XprinterHotspotLab
+      - XprinterHotspotLab/XprinterHotspotLabApp.swift
+      - XprinterHotspotLab/ContentView.swift
+      - XprinterHotspotLab/PrinterSetupService.swift
+      - XprinterHotspotLab/PrinterClient.swift
+      - XprinterHotspotLab/Vendor/Common/ESPUtils
+      - XprinterHotspotLab/Vendor/ESPTouch
     resources:
       - XprinterHotspotLab/Assets.xcassets
     settings:
@@ -36,5 +41,3 @@ targets:
           - "$(SRCROOT)/XprinterHotspotLab/Vendor/ESPTouch/protocol"
           - "$(SRCROOT)/XprinterHotspotLab/Vendor/ESPTouch/task"
           - "$(SRCROOT)/XprinterHotspotLab/Vendor/ESPTouch/udp"
-          - "$(SRCROOT)/XprinterHotspotLab/Vendor/ESPTouchV2"
-          - "$(SRCROOT)/XprinterHotspotLab/Vendor/CocoaAsyncSocket/GCD"
