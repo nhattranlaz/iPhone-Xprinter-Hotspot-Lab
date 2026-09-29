@@ -1,0 +1,144 @@
+name: TestFlight Clean
+on:
+  workflow_dispatch:
+jobs:
+  upload:
+    runs-on: macos-26
+    env:
+      IOS_BUNDLE_ID: com.nhattranlaz.xprinterhotspotlab
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify required secrets
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
+          CERT: ${{ secrets.APPLE_DISTRIBUTION_P12_BASE64 }}
+          CERT_PASSWORD: ${{ secrets.APPLE_DISTRIBUTION_P12_PASSWORD }}
+          PROFILE: ${{ secrets.APPLE_PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          for v in APPLE_TEAM_ID KEY_ID ISSUER_ID API_KEY CERT CERT_PASSWORD PROFILE; do
+            [ -n "${!v}" ] || { echo "::error::Missing required secret: $v"; exit 1; }
+          done
+      - name: Verify Xcode 26
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate LAB app icons
+        run: |
+          python3 - <<'PY'
+          import struct, zlib, pathlib
+          out = pathlib.Path("XprinterHotspotLab/Assets.xcassets/AppIcon.appiconset")
+          out.mkdir(parents=True, exist_ok=True)
+          def png(path, size):
+              # Opaque technical LAB icon: dark field with a white printer-like center block.
+              rows = []
+              for y in range(size):
+                  row = bytearray([0])
+                  for x in range(size):
+                      inside = size*0.20 < x < size*0.80 and size*0.30 < y < size*0.72
+                      paper = size*0.32 < x < size*0.68 and size*0.16 < y < size*0.42
+                      if inside or paper:
+                          row += bytes((245,245,245,255))
+                      else:
+                          row += bytes((25,32,42,255))
+                  rows.append(bytes(row))
+              raw=b"".join(rows)
+              def chunk(t,d):
+                  return struct.pack(">I",len(d))+t+d+struct.pack(">I",zlib.crc32(t+d)&0xffffffff)
+              data=b"\x89PNG\r\n\x1a\n"+chunk(b"IHDR",struct.pack(">IIBBBBB",size,size,8,6,0,0,0))+chunk(b"IDAT",zlib.compress(raw,9))+chunk(b"IEND",b"")
+              path.write_bytes(data)
+          png(out/"Icon-60@2x.png",120)
+          png(out/"Icon-60@3x.png",180)
+          png(out/"Icon-1024.png",1024)
+          PY
+      - name: Generate project
+        run: xcodegen generate --spec ios-clean-project.yml
+      - name: Install and verify signing assets
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          CERT: ${{ secrets.APPLE_DISTRIBUTION_P12_BASE64 }}
+          CERT_PASSWORD: ${{ secrets.APPLE_DISTRIBUTION_P12_PASSWORD }}
+          PROFILE: ${{ secrets.APPLE_PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/lab-signing.keychain-db"
+          python3 - <<'PY'
+          import base64, os, pathlib
+          temp = pathlib.Path(os.environ["RUNNER_TEMP"])
+          for env_name, filename in [("CERT", "cert.p12"), ("PROFILE", "profile.mobileprovision")]:
+              raw = "".join(os.environ[env_name].split())
+              try:
+                  data = base64.b64decode(raw, validate=True)
+              except Exception as exc:
+                  raise SystemExit(f"{env_name} base64 decode failed: {exc}")
+              if not data:
+                  raise SystemExit(f"{env_name} decoded to empty data")
+              (temp / filename).write_bytes(data)
+              print(f"{env_name} decoded bytes: {len(data)}")
+          PY
+          test -s "$RUNNER_TEMP/cert.p12"
+          test -s "$RUNNER_TEMP/profile.mobileprovision"
+          security create-keychain -p lab "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p lab "$KEYCHAIN"
+          security import "$RUNNER_TEMP/cert.p12" -P "$CERT_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple: -s -k lab "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN"
+          security find-identity -v -p codesigning "$KEYCHAIN"
+          security cms -D -i "$RUNNER_TEMP/profile.mobileprovision" > "$RUNNER_TEMP/profile.plist"
+          UUID=$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$RUNNER_TEMP/profile.plist")
+          PROFILE_NAME=$(/usr/libexec/PlistBuddy -c 'Print :Name' "$RUNNER_TEMP/profile.plist")
+          PROFILE_TEAM=$(/usr/libexec/PlistBuddy -c 'Print :TeamIdentifier:0' "$RUNNER_TEMP/profile.plist")
+          APP_IDENTIFIER=$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$RUNNER_TEMP/profile.plist")
+          test "$PROFILE_TEAM" = "$APPLE_TEAM_ID"
+          test "$APP_IDENTIFIER" = "$APPLE_TEAM_ID.$IOS_BUNDLE_ID"
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          cp "$RUNNER_TEMP/profile.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/$UUID.mobileprovision"
+          echo "PROFILE_UUID=$UUID" >> "$GITHUB_ENV"
+          echo "PROFILE_NAME=$PROFILE_NAME" >> "$GITHUB_ENV"
+      - name: Archive
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          xcodebuild -project XprinterSetupClean.xcodeproj \
+            -scheme XprinterSetupClean \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/XprinterSetupClean.xcarchive" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            PRODUCT_BUNDLE_IDENTIFIER="$IOS_BUNDLE_ID" \
+            CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
+            archive
+      - name: Export IPA
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          sed -e "s/__TEAM_ID__/$APPLE_TEAM_ID/g" -e "s/__PROFILE_NAME__/$PROFILE_NAME/g" ExportOptions.plist > "$RUNNER_TEMP/ExportOptions.plist"
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/XprinterSetupClean.xcarchive" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist"
+      - name: Configure App Store Connect API key
+        env:
+          KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
+          KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+        run: |
+          mkdir -p "$HOME/.appstoreconnect/private_keys"
+          printf '%s' "$KEY" > "$HOME/.appstoreconnect/private_keys/AuthKey_$KEY_ID.p8"
+          chmod 600 "$HOME/.appstoreconnect/private_keys/AuthKey_$KEY_ID.p8"
+      - name: Upload TestFlight
+        env:
+          KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          IPA=$(find "$RUNNER_TEMP/export" -name '*.ipa' -print -quit)
+          test -n "$IPA"
+          xcrun altool --upload-app -f "$IPA" -t ios --apiKey "$KEY_ID" --apiIssuer "$ISSUER_ID"
+
+# signing-profile-refresh-20260927-4
